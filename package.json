@@ -4,7 +4,8 @@
   "type": "module",
   "main": "app.js",
   "scripts": {
-    "start": "nodemon api/app.js"
+    "start": "nodemon api/app.js",
+    "vercel-build": "echo 'No build needed for Express backend'"
   },
   "author": "anidev",
   "license": "ISC",
