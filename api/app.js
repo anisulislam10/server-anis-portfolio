@@ -12,6 +12,8 @@ import path from 'path';
 import superadminRoutes from '../routes/superadmin.routes.js';
 import blogRoutes from '../routes/blog.routes.js';
 import projectRoutes from '../routes/project.routes.js';
+import contactRoutes from '../routes/contact.routes.js';
+
 
 
 
@@ -35,6 +37,8 @@ app.use(cors({
 app.use('/api/v1/superadmin', superadminRoutes);
 app.use('/api/v1/blog', blogRoutes);
 app.use('/api/v1/project', projectRoutes);
+app.use('/api/v1/contact', contactRoutes);
+
 
 
 
