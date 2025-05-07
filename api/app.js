@@ -5,10 +5,6 @@ import cors from 'cors';
 dotenv.config();
 
 import connectDB from '../config/db.config.js';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-import path from 'path';
 import superadminRoutes from '../routes/superadmin.routes.js';
 import blogRoutes from '../routes/blog.routes.js';
 import projectRoutes from '../routes/project.routes.js';
@@ -16,6 +12,7 @@ import contactRoutes from '../routes/contact.routes.js';
 
 
 const app = express();
+app.use(cookieParser());
 
 // Connect to database
 connectDB();
