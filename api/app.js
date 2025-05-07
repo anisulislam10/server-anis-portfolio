@@ -15,11 +15,6 @@ import projectRoutes from '../routes/project.routes.js';
 import contactRoutes from '../routes/contact.routes.js';
 
 
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 const app = express();
 
 // Connect to database
