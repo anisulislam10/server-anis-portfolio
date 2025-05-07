@@ -1,11 +1,9 @@
 // controllers/blogController.js
 import BlogPost from '../models/Blog.models.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import cloudinary from '../utils/cloudinary.utils.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import fs from 'fs/promises';
+
 
 // Helper function to delete old image file
 const deleteOldImage = (imageUrl) => {
@@ -20,17 +18,20 @@ const deleteOldImage = (imageUrl) => {
 // Create new post
 export const createPost = async (req, res) => {
   try {
-    const { title, subtitle, description, category } = req.body;
+    const { path } = req.file;
+    const result = await cloudinary.uploader.upload(path);
+
+    // const { title, subtitle, description, category } = req.body;
     
     const newPost = new BlogPost({
-      title,
-      subtitle,
-      description,
-      category,
-      imageUrl: req.file ? `/uploads/${req.file.filename}` : null
+      ...req.body,
+      imageUrl: result.secure_url,
+     
     });
 
     await newPost.save();
+        await fs.unlink(path);
+
     res.status(201).json(newPost);
   } catch (error) {
     res.status(500).json({ message: error.message });

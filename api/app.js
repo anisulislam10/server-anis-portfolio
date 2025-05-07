@@ -28,7 +28,6 @@ connectDB();
 // Middleware
 // Middleware
 app.use(express.json());
-app.use('/public', express.static(path.join(__dirname, 'public')));app.use(cookieParser());
 app.use(cors({
   origin: ['https://anisdev.vercel.app', 'http://localhost:5173'],  credentials: true
 }));
