@@ -13,6 +13,7 @@ import contactRoutes from '../routes/contact.routes.js';
 
 const app = express();
 app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
 
 // Connect to database
 connectDB();

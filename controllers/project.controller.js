@@ -1,46 +1,120 @@
 import Project from '../models/project.models.js';
-import cloudinary from '../utils/cloudinary.utils.js';
 
 export const createProject = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'Image is required' });
-    }
+    const {
+      title,
+      subtitle,
+      description,
+      technologies,
+      githubUrl,
+      liveDemoUrl,
+      featured
+    } = req.body;
 
-    // Upload buffer directly to Cloudinary
-    const result = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        { resource_type: 'auto' },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      
-      // Write the buffer to the upload stream
-      uploadStream.end(req.file.buffer);
-    });
+    const techArray = Array.isArray(technologies)
+      ? technologies
+      : [technologies].filter(Boolean);
 
     const project = new Project({
-      ...req.body,
-      technologies: req.body.technologies?.split(','),
-      imageUrl: result.secure_url,
-      cloudinaryId: result.public_id
+      title,
+      subtitle,
+      description,
+      technologies: techArray,
+      githubUrl,
+      liveDemoUrl,
+      featured,
+      createdAt: new Date()
     });
 
     await project.save();
-    res.status(201).json({ success: true, project });
+
+    res.status(201).json({
+      success: true,
+      message: 'Project created successfully',
+      project
+    });
+
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("Error creating project:", err);
+
+    let errorMessage = 'Internal server error';
+    let statusCode = 500;
+
+    if (err.name === 'ValidationError') {
+      statusCode = 400;
+      errorMessage = Object.values(err.errors)
+        .map(val => val.message)
+        .join(', ');
+    }
+
+    res.status(statusCode).json({
+      success: false,
+      message: errorMessage,
+    });
   }
 };
 
-export const getAllProjects = async (_req, res) => {
+
+export const getAllProjects = async (req, res) => {
   try {
-    const projects = await Project.find();
-    res.status(200).json({ success: true, projects });
+    // Extract query parameters
+    const { featured, sort, fields, limit, page } = req.query;
+    
+    // Create base query
+    const query = {};
+    
+    // Filter by featured status if provided
+    if (featured) {
+      query.featured = featured === 'true';
+    }
+    
+    // Execute query with chaining
+    let result = Project.find(query);
+    
+    // Apply sorting
+    if (sort) {
+      const sortList = sort.split(',').join(' ');
+      result = result.sort(sortList);
+    } else {
+      // Default sorting by newest first
+      result = result.sort('-createdAt');
+    }
+    
+    // Field limiting
+    if (fields) {
+      const fieldsList = fields.split(',').join(' ');
+      result = result.select(fieldsList);
+    }
+    
+    // Pagination
+    const pageNumber = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || 10;
+    const skip = (pageNumber - 1) * pageSize;
+    
+    result = result.skip(skip).limit(pageSize);
+    
+    // Execute final query
+    const projects = await result;
+    
+    // Get total count for pagination info
+    const total = await Project.countDocuments(query);
+    
+    res.status(200).json({ 
+      success: true,
+      count: projects.length,
+      total,
+      page: pageNumber,
+      pages: Math.ceil(total / pageSize),
+      data: projects 
+    });
+    
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Error fetching projects:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to retrieve projects',
+    });
   }
 };
 
@@ -58,65 +132,115 @@ export const getProjectById = async (req, res) => {
 
 export const updateProject = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
-    if (!project) {
-      return res.status(404).json({ success: false, message: 'Project not found' });
+    const { id } = req.params;
+    const { 
+      title, 
+      subtitle, 
+      description, 
+      technologies, 
+      githubUrl, 
+      liveDemoUrl, 
+      featured 
+    } = req.body;
+
+    // Validate project exists
+    const existingProject = await Project.findById(id);
+    if (!existingProject) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
     }
 
-    let updatedData = {
-      ...req.body,
-      technologies: req.body.technologies?.split(',')
+    // Prepare update data
+    const updateData = {
+      title: title || existingProject.title,
+      subtitle: subtitle || existingProject.subtitle,
+      description: description || existingProject.description,
+      technologies: Array.isArray(technologies) 
+        ? technologies 
+        : technologies?.split(',') || existingProject.technologies,
+      githubUrl: githubUrl || existingProject.githubUrl,
+      liveDemoUrl: liveDemoUrl || existingProject.liveDemoUrl,
+      featured: featured !== undefined ? featured : existingProject.featured,
+      updatedAt: new Date()
     };
 
-    if (req.file) {
-      // First delete old image from Cloudinary if it exists
-      if (project.cloudinaryId) {
-        await cloudinary.uploader.destroy(project.cloudinaryId);
-      }
-
-      // Upload new image
-      const result = await new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { resource_type: 'auto' },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        uploadStream.end(req.file.buffer);
-      });
-
-      updatedData.imageUrl = result.secure_url;
-      updatedData.cloudinaryId = result.public_id;
-    }
-
+    // Apply updates
     const updatedProject = await Project.findByIdAndUpdate(
-      req.params.id,
-      updatedData,
-      { new: true }
+      id,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+        context: 'query'
+      }
     );
 
-    res.status(200).json({ success: true, project: updatedProject });
+    res.status(200).json({
+      success: true,
+      message: 'Project updated successfully',
+      data: updatedProject
+    });
+
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Update project error:', err);
+
+    // Handle specific error types
+    let statusCode = 500;
+    let errorMessage = 'Failed to update project';
+
+    if (err.name === 'ValidationError') {
+      statusCode = 400;
+      errorMessage = Object.values(err.errors)
+        .map(error => error.message)
+        .join(', ');
+    }
+
+    res.status(statusCode).json({
+      success: false,
+      message: errorMessage,
+    });
   }
 };
-
 export const deleteProject = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const { id } = req.params;
+
+    // Check if project exists
+    const project = await Project.findByIdAndDelete(id);
+    
     if (!project) {
-      return res.status(404).json({ success: false, message: 'Project not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Project not found' 
+      });
     }
 
-    // Delete image from Cloudinary if it exists
-    if (project.cloudinaryId) {
-      await cloudinary.uploader.destroy(project.cloudinaryId);
-    }
+    res.status(200).json({ 
+      success: true,
+      message: 'Project deleted successfully',
+      deletedProject: {
+        id: project._id,
+        title: project.title
+      }
+    });
 
-    await Project.findByIdAndDelete(req.params.id);
-    res.status(200).json({ success: true, message: 'Project deleted successfully' });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Delete project error:', err);
+    
+    // Handle specific error cases
+    let statusCode = 500;
+    let errorMessage = 'Failed to delete project';
+
+    if (err.name === 'CastError') {
+      statusCode = 400;
+      errorMessage = 'Invalid project ID format';
+    }
+
+    res.status(statusCode).json({ 
+      success: false,
+      message: errorMessage,
+    });
   }
 };
