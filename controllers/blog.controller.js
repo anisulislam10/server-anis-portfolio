@@ -39,7 +39,8 @@ export const createPost = async (req, res) => {
 // Get all posts
 export const getPosts = async (req, res) => {
   try {
-    const posts = await BlogPost.findOne({slug: req.params.slug}).sort({ createdAt: -1 });
+    const posts = await BlogPost.find().sort({ createdAt: -1 }); // No slug filter here
+    console.log("posts---",posts)
     res.json(posts);
   } catch (error) {
     res.status(500).json({ message: error.message });
