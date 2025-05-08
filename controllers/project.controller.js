@@ -78,7 +78,7 @@ export const getAllProjects = async (req, res) => {
       result = result.sort(sortList);
     } else {
       // Default sorting by newest first
-      result = result.sort('-createdAt');
+      result = result.sort('createdAt');
     }
     
     // Field limiting
