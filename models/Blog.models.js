@@ -7,6 +7,11 @@ const blogPostSchema = new mongoose.Schema({
   description: String,
   imageUrl: String,
   category: String,
+  slug: {
+    type: String,
+    unique: true,
+    required: true,
+  },
   createdAt: { type: Date, default: Date.now }
 });
 

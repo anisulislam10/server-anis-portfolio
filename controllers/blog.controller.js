@@ -1,11 +1,22 @@
 // controllers/blogController.js
+import slugify from 'slugify';
 import BlogPost from '../models/Blog.models.js';
 export const createPost = async (req, res) => {
   try {
     const { title, subtitle, description, category, } = req.body;
+    const slug = slugify(title,{lower:true, strict:true})
+
+    const exists = await BlogPost.findOne({slug})
+    if(exists){
+      return res.status(400).json({
+        success:false,
+        message:'Slug already exists. Use a different title.'
+      })
+    }
 
     const newPost = new BlogPost({
       title,
+      slug,
       subtitle,
       description,
       category,
@@ -28,7 +39,7 @@ export const createPost = async (req, res) => {
 // Get all posts
 export const getPosts = async (req, res) => {
   try {
-    const posts = await BlogPost.find().sort({ createdAt: -1 });
+    const posts = await BlogPost.findOne({slug: req.params.slug}).sort({ createdAt: -1 });
     res.json(posts);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -38,7 +49,7 @@ export const getPosts = async (req, res) => {
 // Get single post by ID
 export const getPostById = async (req, res) => {
   try {
-    const post = await BlogPost.findById(req.params.id);
+    const post = await BlogPost.findOne({ slug: req.params.slug });
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
@@ -52,14 +63,17 @@ export const getPostById = async (req, res) => {
 export const updatePost = async (req, res) => {
   try {
     const { title, subtitle, description, category } = req.body;
-    const post = await BlogPost.findById(req.params.id);
+    const post = await BlogPost.findById({ slug: req.params.slug});
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
 
     // Update other fields
-    post.title = title || post.title;
+    if (title) {
+      post.title = title;
+      post.slug = slugify(title, { lower: true, strict: true });
+    }    
     post.subtitle = subtitle || post.subtitle;
     post.description = description || post.description;
     post.category = category || post.category;
@@ -77,7 +91,7 @@ export const updatePost = async (req, res) => {
 
 export const deletePost = async (req, res) => {
   try {
-    const post = await BlogPost.findByIdAndDelete(req.params.id);
+    const post = await BlogPost.findByIdAndDelete({ slug: req.params.slug });
     
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
