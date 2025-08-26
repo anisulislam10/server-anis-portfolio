@@ -24,6 +24,7 @@ export const createProject = async (req, res) => {
       githubUrl,
       liveDemoUrl,
       featured,
+      projectImage: req.file ? req.file.filename : undefined, // Add this line
       createdAt: new Date()
     });
 
@@ -166,7 +167,11 @@ export const updateProject = async (req, res) => {
       updatedAt: new Date()
     };
 
-    // Apply updates
+    // Add image if uploaded
+    if (req.file) {
+      updateData.projectImage = req.file.filename;
+    }
+
     const updatedProject = await Project.findByIdAndUpdate(
       id,
       updateData,
@@ -185,8 +190,6 @@ export const updateProject = async (req, res) => {
 
   } catch (err) {
     console.error('Update project error:', err);
-
-    // Handle specific error types
     let statusCode = 500;
     let errorMessage = 'Failed to update project';
 
