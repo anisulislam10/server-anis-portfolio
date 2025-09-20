@@ -5,22 +5,23 @@ export const createPaymentIntent = async (req, res) => {
   try {
     const { amount } = req.body;
 
-    // Validate amount
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
-      return res.status(400).json({ error: 'Invalid or missing amount' });
+    // Validate amount is an integer (in cents)
+    if (!amount || !Number.isInteger(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Amount must be a positive integer (in cents)' });
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents
+      amount, // Already in cents
       currency: 'usd',
       payment_method_types: ['card'],
-      metadata: { userId: req.user?.id || 'guest' }, // Fallback for unauthenticated users
+      metadata: { userId: req.user?.id || 'guest' },
     });
 
+    console.log('PaymentIntent created:', paymentIntent.id);
     res.json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
     console.error('Error creating PaymentIntent:', error.message);
-    res.status(500).json({ error: 'Failed to create payment intent' });
+    res.status(500).json({ error: `Failed to create payment intent: ${error.message}` });
   }
 };
 
@@ -42,13 +43,11 @@ export const handleWebhook = async (req, res) => {
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
   }
 
-  // Handle different event types
   switch (event.type) {
     case 'payment_intent.succeeded':
       const paymentIntent = event.data.object;
       console.log('Payment succeeded:', paymentIntent.id);
-      // TODO: Update your database (e.g., mark order as paid)
-      // Example: await Order.update({ status: 'paid' }, { where: { paymentIntentId: paymentIntent.id } });
+      // TODO: Update your database
       break;
 
     case 'payment_intent.payment_failed':
