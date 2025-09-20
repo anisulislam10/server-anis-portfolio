@@ -12,7 +12,7 @@ export const createPaymentIntent = async (req, res) => {
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount, // Already in cents
-      currency: 'usd',
+      currency: 'pkr',
       payment_method_types: ['card'],
       metadata: { userId: req.user?.id || 'guest' },
     });
