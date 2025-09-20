@@ -4,16 +4,23 @@ import stripe from '../config/stripe.config.js';
 export const createPaymentIntent = async (req, res) => {
   try {
     const { amount } = req.body;
-    
+
+    // Validate amount
+    if (!amount || typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid or missing amount' });
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount * 100, // Convert to cents
+      amount: Math.round(amount * 100), // Convert to cents
       currency: 'usd',
-      metadata: { userId: req.user.id } // Optional
+      payment_method_types: ['card'],
+      metadata: { userId: req.user?.id || 'guest' }, // Fallback for unauthenticated users
     });
 
     res.json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error creating PaymentIntent:', error.message);
+    res.status(500).json({ error: 'Failed to create payment intent' });
   }
 };
 
@@ -22,18 +29,36 @@ export const handleWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+  if (!endpointSecret) {
+    console.error('Stripe webhook secret not configured');
+    return res.status(500).json({ error: 'Webhook secret not configured' });
+  }
+
   let event;
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
   }
 
-  // Handle successful payment
-  if (event.type === 'payment_intent.succeeded') {
-    const paymentIntent = event.data.object;
-    console.log('Payment succeeded:', paymentIntent.id);
-    // Update your database here
+  // Handle different event types
+  switch (event.type) {
+    case 'payment_intent.succeeded':
+      const paymentIntent = event.data.object;
+      console.log('Payment succeeded:', paymentIntent.id);
+      // TODO: Update your database (e.g., mark order as paid)
+      // Example: await Order.update({ status: 'paid' }, { where: { paymentIntentId: paymentIntent.id } });
+      break;
+
+    case 'payment_intent.payment_failed':
+      const failedPayment = event.data.object;
+      console.log('Payment failed:', failedPayment.id, failedPayment.last_payment_error?.message);
+      // TODO: Notify user or log failure
+      break;
+
+    default:
+      console.log(`Unhandled event type: ${event.type}`);
   }
 
   res.json({ received: true });
