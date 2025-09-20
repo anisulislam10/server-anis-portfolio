@@ -30,7 +30,7 @@ connectDB();
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: ['https://anisdev.vercel.app', 'http://localhost:5173',],  credentials: true
+  origin: ['https://anisdev.vercel.app', 'http://localhost:5173', ' https://01800ac339df.ngrok-free.app'],  credentials: true
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
